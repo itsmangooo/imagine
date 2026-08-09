@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(\\(Get-ChildItem \"A:\\\\Projects\\\\imagine-me\" -Force -Recurse -ErrorAction SilentlyContinue | Measure-Object\\).Count)",
+      "PowerShell(docker volume ls *)",
+      "PowerShell(npm *)",
+      "PowerShell(npx nuxt typecheck 2>&1 | Select-Object -Last 25)",
+      "PowerShell(npx nuxt typecheck; Write-Output \"EXIT=$LASTEXITCODE\")",
+      "PowerShell(npm run *)"
+    ]
+  }
+}

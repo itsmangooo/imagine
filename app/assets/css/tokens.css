@@ -1,0 +1,134 @@
+/* ==========================================================================
+   Imagine — design tokens
+   Single source of truth. Components must never hardcode a colour, radius,
+   duration or spacing value — always reference a var() from this file.
+
+   Direction: dark anthracite base (neutral, never blue-tinted), one fintech
+   green accent, one sans family (Roboto), 12px radius on every container.
+   No drop shadows. No glassmorphism. No gradients as decoration.
+   ========================================================================== */
+
+:root {
+  /* ---- Accent -----------------------------------------------------------
+     Fintech green. Picked as the precise midpoint of the specified
+     #00c896–#10b981 range and checked against the app background:
+     8.1:1 against --bg-app as text, 8.5:1 for --accent-contrast on --accent.
+     Confident and clean rather than neon — reads closer to Wise/Revolut than
+     to a gaming green. */
+  --accent: #08c18c;
+  --accent-hover: #1fd6a0;
+  --accent-press: #06a176;
+  --accent-contrast: #04140f; /* text/icons sitting ON the accent */
+
+  /* Accent tints, for fills and rings. Alpha so they compose over any surface. */
+  --accent-soft: rgb(8 193 140 / 0.12);
+  --accent-soft-hover: rgb(8 193 140 / 0.18);
+  --accent-faint: rgb(8 193 140 / 0.06);
+  --accent-line: rgb(8 193 140 / 0.38);
+  --accent-ring: rgb(8 193 140 / 0.45);
+
+  /* ---- Surfaces ---------------------------------------------------------
+     Neutral greys: R=G=B at every step, so nothing drifts blue. */
+  --bg-app: #121212; /* window background */
+  --bg-surface: #191919; /* sidebars, panels, bars */
+  --bg-raised: #212121; /* cards, inputs, hover states */
+  --bg-raised-hover: #282828;
+  --bg-sunken: #0c0c0c; /* canvas well */
+  --bg-overlay: rgb(0 0 0 / 0.62); /* modal scrim */
+
+  /* ---- Borders ----------------------------------------------------------
+     Hairlines carry the separation work that shadows would elsewhere. */
+  --border-subtle: #202020;
+  --border: #2a2a2a;
+  --border-strong: #3a3a3a;
+
+  /* ---- Text ------------------------------------------------------------- */
+  --text: #f2f1ef; /* soft off-white, never pure #fff */
+  --text-secondary: #a8a8a4;
+  --text-muted: #74746f;
+  --text-disabled: #4e4e4a;
+  --text-inverse: #0b0b0b;
+
+  /* ---- Status ----------------------------------------------------------- */
+  --danger: #e5484d;
+  --danger-hover: #f2585d;
+  --danger-soft: rgb(229 72 77 / 0.12);
+  --warning: #e8a33d;
+  --warning-soft: rgb(232 163 61 / 0.12);
+
+  /* ---- Radius -----------------------------------------------------------
+     12px is THE container radius: cards, panels, canvas frame, buttons, bars.
+     The smaller steps exist only for controls nested inside a 12px container,
+     where matching the parent radius would look wrong. */
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --radius-pill: 999px;
+
+  /* ---- Typography -------------------------------------------------------
+     One family everywhere. Hierarchy comes from weight and size only —
+     never from switching typeface. No serif anywhere in the product. */
+  --font-sans: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-bold: 700;
+
+  --text-xs: 0.6875rem; /* 11px — micro labels */
+  --text-sm: 0.75rem; /* 12px — secondary UI */
+  --text-base: 0.8125rem; /* 13px — default editor UI */
+  --text-md: 0.875rem; /* 14px — body */
+  --text-lg: 1rem; /* 16px */
+  --text-xl: 1.25rem; /* 20px */
+  --text-2xl: 1.625rem; /* 26px */
+  --text-3xl: 2.125rem; /* 34px */
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* Uppercase micro-label treatment, used for panel/section headings. */
+  --tracking-label: 0.06em;
+  --tracking-tight: -0.01em;
+
+  /* ---- Spacing ---------------------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 20px;
+  --space-7: 24px;
+  --space-8: 32px;
+  --space-9: 40px;
+  --space-10: 48px;
+
+  /* ---- Motion -----------------------------------------------------------
+     150–250ms, ease-out. Anything longer feels sluggish in a tool. */
+  --dur-fast: 150ms;
+  --dur: 200ms;
+  --dur-slow: 250ms;
+  --ease: cubic-bezier(0.22, 0.61, 0.3, 1);
+
+  /* ---- Layout -----------------------------------------------------------
+     The editor's three regions. Canvas is 65% × 90% of the viewport per spec. */
+  --sidebar-w: 236px;
+  --sidebar-w-collapsed: 60px;
+  --rightbar-w: 296px;
+  --bottombar-h: 68px;
+  --topbar-h: 52px;
+  --canvas-w: 65vw;
+  --canvas-h: 90%;
+
+  /* ---- Layers ----------------------------------------------------------- */
+  --z-canvas: 1;
+  --z-chrome: 10;
+  --z-popover: 100;
+  --z-modal: 1000;
+  --z-toast: 2000;
+}
+
+/* Deliberately absent: box-shadow tokens. Elevation is expressed with
+   background steps and hairline borders. If you find yourself wanting a
+   shadow, reach for --bg-raised and --border instead. */
