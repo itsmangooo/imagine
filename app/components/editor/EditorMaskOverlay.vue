@@ -12,6 +12,7 @@ const props = defineProps<{ maskId: string | null }>()
 const { imageRect } = useEditor()
 const { masks, showOverlay, draft, drawing, beginLasso, extendLasso, commitLasso, cancelLasso, moveVertex, removeVertex }
   = useMasks()
+const { moveMode } = useMove()
 
 const region = computed(() => masks.value.find(m => m.id === props.maskId) ?? null)
 const draggingVertex = ref<number | null>(null)
@@ -53,8 +54,20 @@ function onMove(event: PointerEvent) {
   extendLasso(positionOf(event, event.currentTarget as HTMLElement))
 }
 
+/** Release capture without letting a failure block what follows. */
+function releaseCapture(target: EventTarget | null, pointerId: number) {
+  const el = target as Element | null
+  try {
+    el?.releasePointerCapture?.(pointerId)
+  } catch {
+    // Throws when this pointer was never captured. Committing the selection
+    // matters far more than tidying up capture, so this must never propagate —
+    // it was silently leaving completed lassos stuck mid-draw.
+  }
+}
+
 function onUp(event: PointerEvent) {
-  ;(event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId)
+  releaseCapture(event.currentTarget, event.pointerId)
   if (!drawing.value || !props.maskId) return
   commitLasso(props.maskId)
 }
@@ -64,7 +77,11 @@ function onUp(event: PointerEvent) {
 function onVertexDown(event: PointerEvent, index: number) {
   event.stopPropagation()
   draggingVertex.value = index
-  ;(event.currentTarget as Element).setPointerCapture(event.pointerId)
+  try {
+    ;(event.currentTarget as Element).setPointerCapture(event.pointerId)
+  } catch {
+    // Capture is an enhancement; dragging still works without it.
+  }
 }
 
 function onVertexMove(event: PointerEvent) {
@@ -75,7 +92,7 @@ function onVertexMove(event: PointerEvent) {
 }
 
 function onVertexUp(event: PointerEvent) {
-  ;(event.currentTarget as Element).releasePointerCapture?.(event.pointerId)
+  releaseCapture(event.currentTarget, event.pointerId)
   draggingVertex.value = null
 }
 
@@ -116,7 +133,7 @@ const style = computed(() => ({
 
     <div
       class="mask__surface"
-      :class="{ 'mask__surface--armed': maskId }"
+      :class="{ 'mask__surface--armed': maskId && !moveMode, 'mask__surface--move': moveMode }"
       @pointerdown="onDown"
       @pointermove="onMove"
       @pointerup="onUp"
@@ -189,6 +206,13 @@ const style = computed(() => ({
   }
 }
 
+/* ---- Cursors per mode -------------------------------------------------
+   The cursor is the only thing telling the user which interaction is live, so
+   each mode gets a distinct one:
+     drawing  → crosshair (precision selection)
+     move     → the surface steps aside entirely so Fabric's own move cursor
+                shows on the piece being dragged
+     vertex   → grab/grabbing, distinct from the drawing crosshair            */
 .mask__surface {
   position: absolute;
   inset: 0;
@@ -200,6 +224,13 @@ const style = computed(() => ({
 
 .mask__surface--armed {
   pointer-events: auto;
+}
+
+/* In Move mode the lasso surface must not swallow the drag, or the piece
+   underneath can never be grabbed. */
+.mask__surface--move {
+  pointer-events: none;
+  cursor: move;
 }
 
 .vertex {

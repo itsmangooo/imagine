@@ -2,6 +2,7 @@ import type { CropRect } from './useCrop'
 import type { AdjustmentValues } from './useFilters'
 import type { TextLayer } from './useText'
 import type { DoodleStroke } from './useDoodle'
+import type { MovedPiece } from './useMove'
 
 /**
  * Multi-document workspace.
@@ -52,6 +53,8 @@ export interface DocumentEdits {
   texts: TextLayer[]
   /** Freehand strokes, in draw order. Plain descriptors — see useDoodle. */
   doodles: DoodleStroke[]
+  /** Masked regions lifted into draggable pieces — see useMove. */
+  pieces: MovedPiece[]
 }
 
 export function emptyLayer(): AdjustmentLayer {
@@ -86,6 +89,7 @@ export function freshEdits(): DocumentEdits {
     targets: { filters: null, grading: null },
     texts: [],
     doodles: [],
+    pieces: [],
   }
 }
 
@@ -117,7 +121,7 @@ export function useDocuments() {
     if (doc.working.src !== doc.original.src) return true
     const e = doc.edits
     if (Object.values(e.global.values).some(v => v !== 0)) return true
-    if (e.texts.length || e.doodles.length) return true
+    if (e.texts.length || e.doodles.length || e.pieces.length) return true
     return Object.values(e.masked).some(layer => Object.values(layer.values).some(v => v !== 0))
   }
 

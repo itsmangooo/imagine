@@ -7,6 +7,7 @@
 
 <template>
   <div class="marketing">
+    <LandingBackdrop />
     <header class="topbar">
       <AppLogo :size="26" />
       <nav class="topbar__nav">
@@ -30,8 +31,15 @@ body:has(.marketing) {
 
 <style scoped>
 .marketing {
+  position: relative;
   min-height: 100%;
   background: var(--bg-app);
+}
+
+/* Content sits above the fixed backdrop layer. */
+.marketing > main {
+  position: relative;
+  z-index: 1;
 }
 
 .topbar {
@@ -44,7 +52,10 @@ body:has(.marketing) {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-5) var(--space-8);
-  background: color-mix(in srgb, var(--bg-app) 82%, transparent);
+  /* Translucent so the drifting backdrop reads through the bar rather than
+     being clipped off at the top of the page. */
+  backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--bg-app) 72%, transparent);
   border-bottom: 1px solid var(--border-subtle);
 }
 

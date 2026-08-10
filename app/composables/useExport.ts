@@ -85,6 +85,23 @@ export function useExport() {
 
     const rect = { left: 0, top: 0, width, height }
 
+    // Lifted pieces sit above the image and below strokes/text, matching the
+    // on-screen stacking. Re-cut at full resolution rather than scaling up the
+    // preview copy.
+    for (const piece of doc.edits.pieces) {
+      const element = await renderPiece(doc.working.src, piece, width, height)
+      if (!element) continue
+      stage.add(
+        new FabricImage(element, {
+          left: piece.x * width,
+          top: piece.y * height,
+          originX: 'left',
+          originY: 'top',
+          opacity: MOVED_PIECE_OPACITY,
+        }),
+      )
+    }
+
     for (const stroke of doc.edits.doodles) {
       const { path, props } = strokeToFabric(stroke, rect)
       stage.add(new Path(path as never, props))

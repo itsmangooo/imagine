@@ -9,9 +9,40 @@ const props = defineProps<{
   allowWholeImage?: boolean
 }>()
 
-const { masks, showOverlay, drawing, createMask, renameMask, deleteMask, clearMask, toggleInvert, maskHasContent }
-  = useMasks()
+const {
+  masks,
+  showOverlay,
+  drawing,
+  lassoMode,
+  magnetStrength,
+  edgeMapReady,
+  edgeMapBusy,
+  setLassoMode,
+  createMask,
+  renameMask,
+  deleteMask,
+  clearMask,
+  toggleInvert,
+  maskHasContent,
+} = useMasks()
 const { targetMaskId, setTarget } = useAdjustmentTarget(props.tool)
+const { zoomToRegion } = useZoom()
+const { moveMode, pieces, canUndo, liftMask, undo: undoMove } = useMove()
+
+/** Bounding box of the target's polygon, normalised — used to frame it. */
+const targetBounds = computed(() => {
+  const points = target.value?.points ?? []
+  if (points.length < 3) return null
+  const xs = points.map(p => p.x)
+  const ys = points.map(p => p.y)
+  const x = Math.min(...xs)
+  const y = Math.min(...ys)
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }
+})
+
+function zoomToMask() {
+  if (targetBounds.value) zoomToRegion(targetBounds.value)
+}
 
 const renaming = ref<string | null>(null)
 const renameValue = ref('')
@@ -87,10 +118,49 @@ function commitRename() {
     </div>
 
     <div v-if="target" class="lasso">
+      <!-- Freeform keeps full manual control for selections that deliberately
+           do not follow a hard edge. -->
+      <div class="modes">
+        <UiButton
+          variant="secondary"
+          size="sm"
+          :active="lassoMode === 'freeform'"
+          @click="setLassoMode('freeform')"
+        >
+          Freeform
+        </UiButton>
+        <UiButton
+          variant="secondary"
+          size="sm"
+          :active="lassoMode === 'magnetic'"
+          @click="setLassoMode('magnetic')"
+        >
+          Magnetic
+        </UiButton>
+      </div>
+
+      <template v-if="lassoMode === 'magnetic'">
+        <p v-if="edgeMapBusy" class="lasso__status">Finding edges…</p>
+        <p v-else-if="!edgeMapReady" class="lasso__status">Edge detection unavailable for this image.</p>
+        <UiSlider
+          v-else
+          :model-value="magnetStrength"
+          label="Snap radius"
+          :min="0.005"
+          :max="0.06"
+          :step="0.005"
+          :default="0.02"
+          @update:model-value="magnetStrength = $event"
+        />
+      </template>
+
       <p class="lasso__hint">
         <UiIcon name="info" :size="14" />
         <span v-if="drawing">Release to close the selection.</span>
-        <span v-else-if="!maskHasContent(target)">Drag around an object on the canvas to select it.</span>
+        <span v-else-if="!maskHasContent(target)">
+          Drag around an object on the canvas to select it.
+          <template v-if="lassoMode === 'magnetic'">The path will cling to nearby edges.</template>
+        </span>
         <span v-else>Drag a point to reshape. Double-click a point to remove it.</span>
       </p>
 
@@ -117,6 +187,41 @@ function commitRename() {
           Clear
         </UiButton>
       </div>
+
+      <!-- Jump straight to the selection, so fine vertex work does not mean
+           hunting for a small region by hand. -->
+      <UiButton
+        variant="secondary"
+        size="sm"
+        block
+        icon="crop"
+        :disabled="!targetBounds"
+        @click="zoomToMask"
+      >
+        Zoom to selection
+      </UiButton>
+
+      <!-- Lifting leaves the original visible underneath; the piece renders
+           semi-transparent so that is obvious without explanation. -->
+      <div class="move">
+        <UiButton
+          variant="secondary"
+          size="sm"
+          icon="layers"
+          :active="moveMode"
+          :disabled="!targetBounds"
+          @click="liftMask(target.id)"
+        >
+          Move selection
+        </UiButton>
+        <UiButton variant="ghost" size="sm" icon="undo" :disabled="!canUndo" @click="undoMove">
+          Undo
+        </UiButton>
+      </div>
+      <p v-if="pieces.length" class="lasso__status">
+        {{ pieces.length }} lifted piece{{ pieces.length === 1 ? '' : 's' }} · drag on the canvas.
+        The original stays underneath.
+      </p>
     </div>
   </section>
 </template>
@@ -230,6 +335,22 @@ function commitRename() {
   margin-top: var(--space-3);
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-subtle);
+}
+
+.modes,
+.move {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.modes > *,
+.move > :first-child {
+  flex: 1;
+}
+
+.lasso__status {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
 }
 
 .lasso__hint {

@@ -115,6 +115,15 @@ export function disposeMasksFor(docId: string) {
 /** Smallest gap between recorded points, as a fraction of the image. */
 const MIN_POINT_GAP = 0.006
 
+export type LassoMode = 'freeform' | 'magnetic'
+
+/**
+ * Edge field for the active image, held at module scope. Computed once when
+ * magnetic mode is first used on an image, never per frame.
+ */
+let edgeMap: EdgeMap | null = null
+let edgeMapSrc: string | null = null
+
 let nextMaskId = 0
 
 export function useMasks() {
@@ -125,6 +134,11 @@ export function useMasks() {
   /** The lasso currently being drawn, if any. */
   const draft = useState<MaskPoint[]>('masks:draft', () => [])
   const drawing = useState<boolean>('masks:drawing', () => false)
+  const lassoMode = useState<LassoMode>('masks:lasso-mode', () => 'freeform')
+  /** Search radius for edge snapping, as a fraction of the image's short edge. */
+  const magnetStrength = useState<number>('masks:magnet', () => 0.02)
+  const edgeMapReady = useState<boolean>('masks:edge-ready', () => false)
+  const edgeMapBusy = useState<boolean>('masks:edge-busy', () => false)
   /** Bumped whenever geometry changes, so renders and badges react. */
   const revision = useState<number>('masks:revision', () => 0)
 
@@ -185,19 +199,57 @@ export function useMasks() {
     setMasks(doc.id, [])
   }
 
+  /* ---- Edge field (magnetic mode) -------------------------------------- */
+
+  /**
+   * Build the edge field for the current image. Called when magnetic mode is
+   * turned on or the image changes — never during a drag.
+   */
+  async function prepareEdgeMap() {
+    const doc = activeDocument.value
+    if (!doc) return
+    if (edgeMapSrc === doc.working.src && edgeMap) {
+      edgeMapReady.value = true
+      return
+    }
+    edgeMapBusy.value = true
+    edgeMapReady.value = false
+    try {
+      edgeMap = await computeEdgeMap(doc.working.src)
+      edgeMapSrc = edgeMap ? doc.working.src : null
+      edgeMapReady.value = !!edgeMap
+    } finally {
+      edgeMapBusy.value = false
+    }
+  }
+
+  function setLassoMode(mode: LassoMode) {
+    lassoMode.value = mode
+    if (mode === 'magnetic') void prepareEdgeMap()
+  }
+
+  /** Apply edge snapping if magnetic mode is on and a field is available. */
+  function resolvePoint(point: MaskPoint): MaskPoint {
+    if (lassoMode.value !== 'magnetic' || !edgeMap) return point
+    return snapToEdge(edgeMap, point, magnetStrength.value)
+  }
+
   /* ---- Lasso drawing --------------------------------------------------- */
 
   function beginLasso(point: MaskPoint) {
-    draft.value = [point]
+    draft.value = [resolvePoint(point)]
     drawing.value = true
   }
 
-  function extendLasso(point: MaskPoint) {
+  function extendLasso(rawPoint: MaskPoint) {
     if (!drawing.value) return
+    const point = resolvePoint(rawPoint)
     const last = draft.value.at(-1)
     // Thin the path as it is drawn; a point per mouse event is far more
     // detail than the polygon needs and makes vertex editing unusable.
-    if (last && Math.hypot(point.x - last.x, point.y - last.y) < MIN_POINT_GAP) return
+    // Measured against the RAW cursor, not the snapped point — otherwise a
+    // snap that lands on the previous vertex stalls the path completely.
+    if (last && Math.hypot(rawPoint.x - last.x, rawPoint.y - last.y) < MIN_POINT_GAP) return
     draft.value = [...draft.value, point]
   }
 
@@ -241,6 +293,12 @@ export function useMasks() {
     draft,
     drawing,
     revision,
+    lassoMode,
+    magnetStrength,
+    edgeMapReady,
+    edgeMapBusy,
+    setLassoMode,
+    prepareEdgeMap,
     createMask,
     renameMask,
     deleteMask,

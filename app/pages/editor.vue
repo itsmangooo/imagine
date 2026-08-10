@@ -2,6 +2,7 @@
 useHead({ title: 'Editor — Imagine' })
 
 const { activeTool, canvas, imageRect } = useEditor()
+const { zoomIn, zoomOut, fitToScreen, actualSize } = useZoom()
 const { activeDocument, documents: documentList } = useDocuments()
 const { scheduleRender } = useRender()
 const { syncToCanvas, commitObject, handleMoving, hideGuides, selectedId } = useText()
@@ -18,6 +19,12 @@ const {
   syncToCanvas: syncCollage,
   commitObject: commitCollage,
 } = useCollage()
+const {
+  moveMode,
+  pieces,
+  syncToCanvas: syncPieces,
+  commitObject: commitPiece,
+} = useMove()
 
 /** Which mask the active tool is painting into, if any. */
 const { targetMaskId: filtersTarget } = useAdjustmentTarget('filters')
@@ -40,6 +47,44 @@ watch(
   () => scheduleRender(),
 )
 
+/* ---- Zoom keyboard shortcuts -------------------------------------------
+   Standard conventions. Bound once here rather than in the zoom bar, so they
+   work regardless of which panel has focus. */
+function isTypingTarget(target: EventTarget | null) {
+  const el = target as HTMLElement | null
+  if (!el) return false
+  return el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)
+}
+
+function onZoomKey(event: KeyboardEvent) {
+  if (isTypingTarget(event.target)) return
+  const mod = event.ctrlKey || event.metaKey
+
+  if (mod && event.key === '0') {
+    event.preventDefault()
+    fitToScreen()
+    return
+  }
+  if (mod && event.key === '1') {
+    event.preventDefault()
+    actualSize()
+    return
+  }
+  // Accept both the bare key and the modified form; '=' is the unshifted '+'.
+  if (event.key === '+' || event.key === '=') {
+    event.preventDefault()
+    zoomIn()
+    return
+  }
+  if (event.key === '-' || event.key === '_') {
+    event.preventDefault()
+    zoomOut()
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onZoomKey))
+onBeforeUnmount(() => window.removeEventListener('keydown', onZoomKey))
+
 /* ---- Text <-> Fabric bridge -------------------------------------------
    Wired here once. Doing it inside the panel would re-register handlers
    every time the tool changed. */
@@ -54,9 +99,11 @@ watch(
     c.on('object:moving', e => void handleMoving(e.target as never))
     c.on('object:modified', (e) => {
       hideGuides()
-      const target = e.target as unknown as { cellId?: string }
-      // Collage cells and text layers both live on this canvas; route by marker.
+      // Collage cells, lifted pieces and text layers all live on this canvas;
+      // route by the marker property each attaches to its object.
+      const target = e.target as unknown as { cellId?: string; pieceId?: string }
       if (target?.cellId) commitCollage(e.target as never)
+      else if (target?.pieceId) commitPiece(e.target as never)
       else commitObject(e.target as never)
     })
     c.on('selection:created', e => {
@@ -100,6 +147,14 @@ watch(
   [activeTool, doodleSettings, imageRect, canvas],
   () => void syncBrush(),
   { deep: true, immediate: true },
+)
+
+// Lifted pieces are positioned from imageRect like every other overlay, so
+// they follow zoom and pan for free.
+watch(
+  [pieces, imageRect, moveMode, activeTool, () => activeDocument.value?.id],
+  () => void syncPieces(),
+  { deep: true },
 )
 
 // Collage composes across documents, so it reacts to its own state and the

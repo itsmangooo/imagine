@@ -14,6 +14,8 @@ const { open: exportOpen } = useExport()
     </div>
 
     <div class="topbar__actions">
+      <EditorZoomBar />
+      <div class="topbar__divider" />
       <UiButton variant="ghost" size="sm" icon-only icon="undo" label="Undo" disabled />
       <UiButton variant="ghost" size="sm" icon-only icon="redo" label="Redo" disabled />
       <div class="topbar__divider" />
